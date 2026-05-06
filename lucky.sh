@@ -172,8 +172,9 @@ update_self() {
         # 同时更新快捷方式
         cp "$0" "$SHORTCUT" >/dev/null 2>&1
         chmod +x "$SHORTCUT"
-        printf "${GREEN}脚本更新成功！请重新运行脚本。${PLAIN}\n"
-        exit 0
+        printf "${GREEN}脚本更新成功！正在重新启动...${PLAIN}\n"
+        sleep 1
+        exec "$0"
     else
         printf "${RED}脚本更新失败，请检查网络连接！${PLAIN}\n"
         sleep 2
