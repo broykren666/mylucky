@@ -69,31 +69,35 @@ install_lucky() {
     apk add tar wget curl ca-certificates
 
     mkdir -p "$LUCKY_DIR"
-    printf "${YELLOW}正在获取最新版 Lucky...${PLAIN}\n"
+    
+    printf "${YELLOW}正在获取最新版本号...${PLAIN}\n"
+    # 获取最新版本号 (去 v 前缀)
+    local tag=$(curl -s https://api.github.com/repos/gdy666/lucky/releases/latest | grep "tag_name" | cut -d '"' -f 4)
+    if [ -z "$tag" ]; then
+        printf "${RED}无法获取最新版本号，请检查网络！${PLAIN}\n"
+        pause_exit
+        return 1
+    fi
+    local version=$(echo "$tag" | sed 's/v//')
+    printf "${GREEN}最新版本: ${tag}${PLAIN}\n"
 
     # 自动识别架构
     local arch=$(uname -m)
     case "$arch" in
-        x86_64) arch="amd64" ;;
+        x86_64) arch="x86_64" ;;
         aarch64|arm64) arch="arm64" ;;
-        armv7*) arch="arm7" ;;
-        armv6*) arch="arm6" ;;
-        i386|i686) arch="386" ;;
+        armv7*) arch="armv7" ;;
+        armv6*) arch="armv6" ;;
+        i386|i686) arch="i386" ;;
         *) printf "${RED}不支持的架构: $arch${PLAIN}\n"; pause_exit; return 1 ;;
     esac
 
-    # 尝试从 gdy666 下载 (官方)
-    local download_url="https://github.com/gdy666/lucky/releases/latest/download/lucky_linux_${arch}.tar.gz"
+    # 构造下载地址
+    # 示例: https://github.com/gdy666/lucky/releases/download/v2.27.2/lucky_2.27.2_Linux_x86_64.tar.gz
+    local download_url="https://github.com/gdy666/lucky/releases/download/${tag}/lucky_${version}_Linux_${arch}.tar.gz"
     printf "${YELLOW}下载地址: ${download_url}${PLAIN}\n"
     
     wget -O /tmp/lucky.tar.gz "$download_url"
-    if [ $? -ne 0 ]; then
-        printf "${RED}下载失败，尝试备用地址...${PLAIN}\n"
-        # 尝试备用地址 (gkd-is)
-        download_url="https://github.com/gkd-is/lucky/releases/latest/download/lucky_linux_${arch}.tar.gz"
-        wget -O /tmp/lucky.tar.gz "$download_url"
-    fi
-
     if [ $? -ne 0 ]; then
         printf "${RED}下载失败，请检查网络连接或 GitHub 访问！${PLAIN}\n"
         pause_exit
