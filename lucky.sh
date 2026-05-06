@@ -30,17 +30,27 @@ create_shortcut() {
 }
 
 # 获取本机 IP (缓存结果避免延迟)
-PUBLIC_IP=""
-get_ip() {
-    if [ -z "$PUBLIC_IP" ]; then
+IPV4=""
+IPV6=""
+get_ips() {
+    # 获取 IPv4
+    if [ -z "$IPV4" ]; then
         if command -v curl >/dev/null 2>&1; then
-            PUBLIC_IP=$(curl -sS --connect-timeout 5 https://api.ipify.org 2>/dev/null || curl -sS --connect-timeout 5 https://ifconfig.me 2>/dev/null)
+            IPV4=$(curl -4 -sS --connect-timeout 5 https://api64.ipify.org 2>/dev/null)
         elif command -v wget >/dev/null 2>&1; then
-            PUBLIC_IP=$(wget -qO- --timeout=5 https://api.ipify.org 2>/dev/null || wget -qO- --timeout=5 https://ifconfig.me 2>/dev/null)
+            IPV4=$(wget -4 -qO- --timeout=5 https://api64.ipify.org 2>/dev/null)
         fi
-        [ -z "$PUBLIC_IP" ] && PUBLIC_IP="无法获取"
+        [ -z "$IPV4" ] && IPV4="未获取到"
     fi
-    printf "%s" "$PUBLIC_IP"
+    # 获取 IPv6
+    if [ -z "$IPV6" ]; then
+        if command -v curl >/dev/null 2>&1; then
+            IPV6=$(curl -6 -sS --connect-timeout 5 https://api64.ipify.org 2>/dev/null)
+        elif command -v wget >/dev/null 2>&1; then
+            IPV6=$(wget -6 -qO- --timeout=5 https://api64.ipify.org 2>/dev/null)
+        fi
+        [ -z "$IPV6" ] && IPV6="未获取到"
+    fi
 }
 
 # 获取 Lucky 状态
@@ -124,7 +134,8 @@ EOF
 
     printf "${GREEN}Lucky 安装/更新完成并已启动！${PLAIN}\n"
     printf "${BLUE}快捷启动命令：lucky${PLAIN}\n"
-    printf "${BLUE}默认管理地址：http://$(get_ip):16601 (请确保映射了内网 16601 端口)${PLAIN}\n"
+    get_ips
+    printf "${BLUE}默认管理地址：http://$IPV4:16601 (请确保映射了内网 16601 端口)${PLAIN}\n"
     printf "${BLUE}默认账号：666 / 密码：666${PLAIN}\n"
     pause_exit
 }
@@ -169,10 +180,12 @@ update_self() {
 show_menu() {
     create_shortcut
     while true; do
+        get_ips
         clear
         printf "--- ${BLUE}Lucky 管理脚本 (Alpine NAT 专用)${PLAIN} ---\n"
-        printf "${YELLOW}本机公网 IP:${PLAIN} %s\n" "$(get_ip)"
-        printf "${YELLOW}Lucky 状态: ${PLAIN} %s\n" "$(get_status)"
+        printf "${YELLOW}IPv4 地址:${PLAIN} %s\n" "$IPV4"
+        printf "${YELLOW}IPv6 地址:${PLAIN} %s\n" "$IPV6"
+        printf "${YELLOW}Lucky 状态:${PLAIN} %s\n" "$(get_status)"
         printf "----------------------------------------\n"
         printf "1. 安装/更新 Lucky (主程序)\n"
         printf "2. 卸载 Lucky\n"
