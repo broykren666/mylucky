@@ -55,8 +55,8 @@ get_status() {
 # 安装 Lucky
 install_lucky() {
     printf "${YELLOW}正在安装/更新依赖 (tar, wget, curl, ca-certificates)...${PLAIN}\n"
-    apk update >/dev/null 2>&1
-    apk add tar wget curl ca-certificates >/dev/null 2>&1
+    apk update
+    apk add tar wget curl ca-certificates
 
     mkdir -p "$LUCKY_DIR"
     printf "${YELLOW}正在获取最新版 Lucky...${PLAIN}\n"
@@ -69,16 +69,35 @@ install_lucky() {
         armv7*) arch="arm7" ;;
         armv6*) arch="arm6" ;;
         i386|i686) arch="386" ;;
-        *) printf "${RED}不支持的架构: $arch${PLAIN}\n"; exit 1 ;;
+        *) printf "${RED}不支持的架构: $arch${PLAIN}\n"; pause_exit; return 1 ;;
     esac
 
-    wget -O /tmp/lucky.tar.gz "https://github.com/gkd-is/lucky/releases/latest/download/lucky_linux_${arch}.tar.gz"
+    # 尝试从 gdy666 下载 (官方)
+    local download_url="https://github.com/gdy666/lucky/releases/latest/download/lucky_linux_${arch}.tar.gz"
+    printf "${YELLOW}下载地址: ${download_url}${PLAIN}\n"
+    
+    wget -O /tmp/lucky.tar.gz "$download_url"
     if [ $? -ne 0 ]; then
-        printf "${RED}下载失败，请检查网络连接！${PLAIN}\n"
+        printf "${RED}下载失败，尝试备用地址...${PLAIN}\n"
+        # 尝试备用地址 (gkd-is)
+        download_url="https://github.com/gkd-is/lucky/releases/latest/download/lucky_linux_${arch}.tar.gz"
+        wget -O /tmp/lucky.tar.gz "$download_url"
+    fi
+
+    if [ $? -ne 0 ]; then
+        printf "${RED}下载失败，请检查网络连接或 GitHub 访问！${PLAIN}\n"
+        pause_exit
         return 1
     fi
 
+    printf "${YELLOW}正在解压文件...${PLAIN}\n"
     tar -zxvf /tmp/lucky.tar.gz -C "$LUCKY_DIR"
+    if [ $? -ne 0 ]; then
+        printf "${RED}解压失败！${PLAIN}\n"
+        pause_exit
+        return 1
+    fi
+    
     chmod +x "$LUCKY_BIN"
     rm -f /tmp/lucky.tar.gz
 
@@ -107,7 +126,13 @@ EOF
     printf "${BLUE}快捷启动命令：lucky${PLAIN}\n"
     printf "${BLUE}默认管理地址：http://$(get_ip):16601 (请确保映射了内网 16601 端口)${PLAIN}\n"
     printf "${BLUE}默认账号：666 / 密码：666${PLAIN}\n"
-    printf "${YELLOW}按回车键继续...${PLAIN}"; read -r tmp
+    pause_exit
+}
+
+# 辅助函数：暂停并返回
+pause_exit() {
+    printf "${YELLOW}按回车键继续...${PLAIN}"
+    read -r tmp
 }
 
 # 卸载 Lucky
@@ -119,7 +144,7 @@ uninstall_lucky() {
     rm -f "$INIT_FILE"
     rm -f "$SHORTCUT"
     printf "${GREEN}卸载成功！${PLAIN}\n"
-    printf "${YELLOW}按回车键继续...${PLAIN}"; read -r tmp
+    pause_exit
 }
 
 # 更新管理脚本本身
