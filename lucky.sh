@@ -12,12 +12,22 @@ LUCKY_DIR="/opt/lucky"
 LUCKY_BIN="${LUCKY_DIR}/lucky"
 LUCKY_CONF="${LUCKY_DIR}/lucky.conf"
 INIT_FILE="/etc/init.d/lucky"
+SCRIPT_URL="https://raw.githubusercontent.com/broykren666/mylucky/refs/heads/main/lucky.sh"
+SHORTCUT="/usr/bin/lucky"
 
 # 检查 root 权限
 if [ "$(id -u)" -ne 0 ]; then
     printf "${RED}错误：必须使用 root 用户运行此脚本！${PLAIN}\n"
     exit 1
 fi
+
+# 创建快捷启动命令
+create_shortcut() {
+    if [ ! -f "$SHORTCUT" ] || [ "$(readlink -f "$SHORTCUT" 2>/dev/null)" != "$(readlink -f "$0" 2>/dev/null)" ]; then
+        cp "$0" "$SHORTCUT" >/dev/null 2>&1
+        chmod +x "$SHORTCUT"
+    fi
+}
 
 # 获取本机 IP (缓存结果避免延迟)
 PUBLIC_IP=""
@@ -90,7 +100,11 @@ EOF
     rc-update add lucky default >/dev/null 2>&1
     rc-service lucky restart >/dev/null 2>&1
 
+    # 创建快捷命令
+    create_shortcut
+
     printf "${GREEN}Lucky 安装/更新完成并已启动！${PLAIN}\n"
+    printf "${BLUE}快捷启动命令：lucky${PLAIN}\n"
     printf "${BLUE}默认管理地址：http://$(get_ip):16601 (请确保映射了内网 16601 端口)${PLAIN}\n"
     printf "${BLUE}默认账号：666 / 密码：666${PLAIN}\n"
     printf "${YELLOW}按回车键继续...${PLAIN}"; read -r tmp
@@ -103,26 +117,47 @@ uninstall_lucky() {
     rc-update del lucky default >/dev/null 2>&1
     rm -rf "$LUCKY_DIR"
     rm -f "$INIT_FILE"
+    rm -f "$SHORTCUT"
     printf "${GREEN}卸载成功！${PLAIN}\n"
     printf "${YELLOW}按回车键继续...${PLAIN}"; read -r tmp
 }
 
+# 更新管理脚本本身
+update_self() {
+    printf "${YELLOW}正在从 GitHub 获取最新管理脚本...${PLAIN}\n"
+    wget -O /tmp/lucky_new.sh "$SCRIPT_URL"
+    if [ $? -eq 0 ]; then
+        mv /tmp/lucky_new.sh "$0"
+        chmod +x "$0"
+        # 同时更新快捷方式
+        cp "$0" "$SHORTCUT" >/dev/null 2>&1
+        chmod +x "$SHORTCUT"
+        printf "${GREEN}脚本更新成功！请重新运行脚本。${PLAIN}\n"
+        exit 0
+    else
+        printf "${RED}脚本更新失败，请检查网络连接！${PLAIN}\n"
+        sleep 2
+    fi
+}
+
 # 主菜单
 show_menu() {
+    create_shortcut
     while true; do
         clear
         printf "--- ${BLUE}Lucky 管理脚本 (Alpine NAT 专用)${PLAIN} ---\n"
         printf "${YELLOW}本机公网 IP:${PLAIN} %s\n" "$(get_ip)"
         printf "${YELLOW}Lucky 状态: ${PLAIN} %s\n" "$(get_status)"
         printf "----------------------------------------\n"
-        printf "1. 安装/更新 Lucky\n"
+        printf "1. 安装/更新 Lucky (主程序)\n"
         printf "2. 卸载 Lucky\n"
         printf "3. 启动 Lucky\n"
         printf "4. 停止 Lucky\n"
         printf "5. 重启 Lucky\n"
+        printf "6. 更新管理脚本\n"
         printf "0. 退出\n"
         printf "----------------------------------------\n"
-        printf "请输入数字 [0-5]: "
+        printf "请输入数字 [0-6]: "
         read -r num
 
         case "$num" in
@@ -131,6 +166,7 @@ show_menu() {
             3) rc-service lucky start ;;
             4) rc-service lucky stop ;;
             5) rc-service lucky restart ;;
+            6) update_self ;;
             0) exit 0 ;;
             *) printf "${RED}请输入正确的数字${PLAIN}\n"; sleep 2 ;;
         esac
